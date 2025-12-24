@@ -417,8 +417,43 @@
             <button class="icon-btn" onclick="app.showUserModal()" title="账号管理">👤</button>
             <button class="icon-btn" onclick="location.href='stats.html'" title="分类统计">📊</button>
             <button class="icon-btn" onclick="app.exportToCSV()" title="导出CSV">📥</button>
+            <button class="icon-btn" onclick="app.showBackupModal()" title="数据备份">💾</button>
         </div>
     </nav>
+
+    <!-- 备份管理弹窗 -->
+    <div id="backupModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:20px; padding:24px; width:90%; max-width:400px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="font-size:20px; font-weight:700;">💾 数据备份</h3>
+                <button onclick="app.hideBackupModal()"
+                    style="border:none; background:none; font-size:24px; cursor:pointer;">×</button>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <p style="color:var(--text-sub); font-size:14px; margin-bottom:12px;">导出所有账号的计划和账单数据</p>
+                <button onclick="app.exportBackup()"
+                    style="width:100%; padding:14px; border:none; border-radius:12px; background:var(--primary); color:white; font-size:16px; cursor:pointer;">
+                    📤 导出完整备份
+                </button>
+            </div>
+
+            <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:20px;">
+                <p style="color:var(--text-sub); font-size:14px; margin-bottom:12px;">从备份文件恢复数据</p>
+                <input type="file" id="backupFile" accept=".json" style="display:none;"
+                    onchange="app.handleBackupFile(event)">
+                <button onclick="document.getElementById('backupFile').click()"
+                    style="width:100%; padding:14px; border:none; border-radius:12px; background:#34C759; color:white; font-size:16px; cursor:pointer;">
+                    📂 选择备份文件导入
+                </button>
+                <label
+                    style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; color:var(--text-sub);">
+                    <input type="checkbox" id="clearBeforeRestore"> 导入前清空现有数据
+                </label>
+            </div>
+        </div>
+    </div>
 
     <!-- 账号管理弹窗 -->
     <div id="userModal"
@@ -759,6 +794,61 @@
                         alert('密码错误');
                     }
                 } catch (e) { console.error(e); }
+            },
+
+            // === 数据备份 ===
+            showBackupModal: function () {
+                document.getElementById('backupModal').style.display = 'flex';
+            },
+
+            hideBackupModal: function () {
+                document.getElementById('backupModal').style.display = 'none';
+            },
+
+            exportBackup: function () {
+                window.open(`${API_BASE}/backup`, '_blank');
+            },
+
+            handleBackupFile: async function (event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+
+                    if (!data.users && !data.todos && !data.transactions) {
+                        alert('无效的备份文件格式');
+                        return;
+                    }
+
+                    const clearExisting = document.getElementById('clearBeforeRestore').checked;
+                    const confirmMsg = clearExisting
+                        ? '确定导入备份？现有数据将被清空！'
+                        : '确定导入备份？已有数据会被保留，相同ID的数据会跳过。';
+
+                    if (!confirm(confirmMsg)) return;
+
+                    const res = await fetch(`${API_BASE}/restore`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...data, clearExisting })
+                    });
+
+                    if (res.ok) {
+                        const result = await res.json();
+                        alert(result.message || '数据恢复成功！');
+                        this.hideBackupModal();
+                        await this.loadUsers();
+                        this.loadData();
+                    } else {
+                        alert('恢复失败：' + await res.text());
+                    }
+                } catch (e) {
+                    alert('文件解析失败：' + e.message);
+                }
+
+                event.target.value = ''; // 重置文件选择
             },
 
             initTimeSelects: function () {

@@ -310,7 +310,7 @@ app.get('/api/category-stats', (req, res) => {
 });
 
 
-// Export CSV
+// Export CSV (按日期范围)
 app.get('/api/export', (req, res) => {
     const { startDate, endDate, userId } = req.query;
     const uid = userId || 1;
@@ -341,6 +341,99 @@ app.get('/api/export', (req, res) => {
             res.send('\ufeff' + csv); // BOM for Excel
         });
     });
+});
+
+// ========== 完整数据备份/恢复 ==========
+
+// 导出全部数据 (JSON格式，便于导入)
+app.get('/api/backup', (req, res) => {
+    db.query('SELECT * FROM users', (err, users) => {
+        if (err) return res.status(500).send(err);
+
+        db.query('SELECT * FROM todos', (err, todos) => {
+            if (err) return res.status(500).send(err);
+
+            db.query('SELECT * FROM transactions', (err, transactions) => {
+                if (err) return res.status(500).send(err);
+
+                const backup = {
+                    exportTime: new Date().toISOString(),
+                    users: users,
+                    todos: todos,
+                    transactions: transactions
+                };
+
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.setHeader('Content-Disposition', `attachment; filename=daily-plan-backup-${new Date().toISOString().split('T')[0]}.json`);
+                res.send(JSON.stringify(backup, null, 2));
+            });
+        });
+    });
+});
+
+// 导入备份数据 (JSON格式)
+app.post('/api/restore', (req, res) => {
+    const { users, todos, transactions, clearExisting } = req.body;
+
+    const doRestore = () => {
+        let completed = 0;
+        let errors = [];
+
+        // 导入用户
+        if (users && users.length > 0) {
+            users.forEach(u => {
+                if (u.id === 1) return; // 跳过默认用户
+                db.query(
+                    'INSERT IGNORE INTO users (id, username, password, created_at) VALUES (?, ?, ?, ?)',
+                    [u.id, u.username, u.password || '', u.created_at],
+                    (err) => { if (err) errors.push(err.message); }
+                );
+            });
+        }
+
+        // 导入计划
+        if (todos && todos.length > 0) {
+            todos.forEach(t => {
+                db.query(
+                    'INSERT IGNORE INTO todos (id, user_id, text, start_time, end_time, completed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [t.id, t.user_id || 1, t.text, t.start_time, t.end_time, t.completed, t.created_at],
+                    (err) => { if (err) errors.push(err.message); }
+                );
+            });
+        }
+
+        // 导入交易
+        if (transactions && transactions.length > 0) {
+            transactions.forEach(t => {
+                db.query(
+                    'INSERT IGNORE INTO transactions (id, user_id, type, category, description, amount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [t.id, t.user_id || 1, t.type, t.category, t.description, t.amount, t.created_at],
+                    (err) => { if (err) errors.push(err.message); }
+                );
+            });
+        }
+
+        setTimeout(() => {
+            if (errors.length > 0) {
+                res.json({ success: true, warnings: errors.slice(0, 5) });
+            } else {
+                res.json({ success: true, message: '数据恢复成功' });
+            }
+        }, 1000);
+    };
+
+    if (clearExisting) {
+        // 清空现有数据（保留默认用户）
+        db.query('DELETE FROM todos', () => {
+            db.query('DELETE FROM transactions', () => {
+                db.query('DELETE FROM users WHERE id != 1', () => {
+                    doRestore();
+                });
+            });
+        });
+    } else {
+        doRestore();
+    }
 });
 
 app.listen(PORT, () => {
