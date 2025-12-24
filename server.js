@@ -328,11 +328,12 @@ app.get('/api/export', (req, res) => {
             let csv = '类型,日期,内容,金额/时间,状态\n';
 
             todos.forEach(t => {
-                csv += `计划,${t.created_at},"${t.text}",${t.start_time}-${t.end_time},${t.completed ? '已完成' : '未完成'}\n`;
+                // 日期加引号确保Excel正确显示
+                csv += `计划,"${t.created_at}","${t.text}","${t.start_time}-${t.end_time}",${t.completed ? '已完成' : '未完成'}\n`;
             });
 
             transactions.forEach(t => {
-                csv += `${t.type === 'income' ? '收入' : '支出'},${t.created_at},"${t.category}: ${t.description}",¥${t.amount},--\n`;
+                csv += `${t.type === 'income' ? '收入' : '支出'},"${t.created_at}","${t.category}: ${t.description}","¥${t.amount}",--\n`;
             });
 
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
