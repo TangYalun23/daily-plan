@@ -412,10 +412,31 @@
     <nav class="nav-bar">
         <div class="nav-title">Daily Life</div>
         <div class="nav-icons">
-            <button class="icon-btn" onclick="app.exportToCSV()">📥</button>
-            <button class="icon-btn" style="color:var(--danger)" onclick="app.clearData()">🗑️</button>
+            <select id="userSelect" class="input-style"
+                style="width:auto; height:32px; padding:4px 8px; font-size:13px; margin-right:8px;"></select>
+            <button class="icon-btn" onclick="app.showUserModal()" title="账号管理">👤</button>
+            <button class="icon-btn" onclick="location.href='stats.html'" title="分类统计">📊</button>
+            <button class="icon-btn" onclick="app.exportToCSV()" title="导出CSV">📥</button>
         </div>
     </nav>
+
+    <!-- 账号管理弹窗 -->
+    <div id="userModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center;">
+        <div
+            style="background:white; border-radius:20px; padding:24px; width:90%; max-width:360px; max-height:80vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="font-size:20px; font-weight:700;">账号管理</h3>
+                <button onclick="app.hideUserModal()"
+                    style="border:none; background:none; font-size:24px; cursor:pointer;">×</button>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="text" id="newUsername" class="input-style" placeholder="输入新账号名" style="flex:1;">
+                <button onclick="app.addUser()" class="btn-add" style="width:48px;">+</button>
+            </div>
+            <ul id="userList" style="list-style:none;"></ul>
+        </div>
+    </div>
 
     <div class="header-area">
         <h1>每日记录</h1>
@@ -524,19 +545,28 @@
 
         const app = {
             data: { todos: [], transactions: [] },
+            currentUserId: localStorage.getItem('currentUserId') || 1,
+            users: [],
 
             categories: {
                 expense: ['餐饮', '购物', '交通', '住房', '娱乐', '医疗', '订阅', '其他'],
                 income: ['工资', '兼职', '理财', '红包', '退款', '其他']
             },
 
-            init: function () {
+            init: async function () {
                 document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
                 this.initTimeSelects();
                 this.updateCategories();
+
+                await this.loadUsers();
                 this.loadData();
 
                 document.getElementById('dateInput').onchange = () => this.loadData();
+                document.getElementById('userSelect').onchange = (e) => {
+                    this.currentUserId = e.target.value;
+                    localStorage.setItem('currentUserId', this.currentUserId);
+                    this.loadData();
+                };
                 document.getElementById('todoInput').onkeypress = (e) => { if (e.key === 'Enter') this.addTodo(); };
                 document.getElementById('transAmount').onkeypress = (e) => { if (e.key === 'Enter') this.addTransaction(); };
 
@@ -559,7 +589,85 @@
             },
 
             exportToCSV: function () {
-                alert('导出功能暂未适配后端API');
+                const date = document.getElementById('dateInput').value;
+                const [year, month] = date.split('-');
+                const startDate = `${year}-${month}-01`;
+                const endDate = `${year}-${month}-31`;
+                window.open(`${API_BASE}/export?startDate=${startDate}&endDate=${endDate}&userId=${this.currentUserId}`, '_blank');
+            },
+
+            // === 用户管理 ===
+            loadUsers: async function () {
+                try {
+                    const res = await fetch(`${API_BASE}/users`);
+                    if (res.ok) {
+                        this.users = await res.json();
+                        this.renderUserSelect();
+                        this.renderUserList();
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            renderUserSelect: function () {
+                const select = document.getElementById('userSelect');
+                select.innerHTML = this.users.map(u =>
+                    `<option value="${u.id}" ${u.id == this.currentUserId ? 'selected' : ''}>${u.username}</option>`
+                ).join('');
+            },
+
+            renderUserList: function () {
+                const list = document.getElementById('userList');
+                list.innerHTML = this.users.map(u => `
+                    <li style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
+                        <span style="font-size:16px;">${u.username}</span>
+                        ${u.id === 1 ? '<span style="color:var(--text-sub); font-size:12px;">默认</span>' :
+                        `<button onclick="app.deleteUser(${u.id})" style="border:none; background:none; color:var(--danger); font-size:18px; cursor:pointer;">×</button>`}
+                    </li>
+                `).join('');
+            },
+
+            addUser: async function () {
+                const input = document.getElementById('newUsername');
+                const username = input.value.trim();
+                if (!username) return alert('请输入账号名');
+
+                try {
+                    const res = await fetch(`${API_BASE}/users`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username })
+                    });
+                    if (res.ok) {
+                        input.value = '';
+                        await this.loadUsers();
+                    } else {
+                        const msg = await res.text();
+                        alert(msg);
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            deleteUser: async function (id) {
+                if (!confirm('确定删除此账号？该账号的所有数据将被删除！')) return;
+                try {
+                    const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        if (this.currentUserId == id) {
+                            this.currentUserId = 1;
+                            localStorage.setItem('currentUserId', 1);
+                        }
+                        await this.loadUsers();
+                        this.loadData();
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            showUserModal: function () {
+                document.getElementById('userModal').style.display = 'flex';
+            },
+
+            hideUserModal: function () {
+                document.getElementById('userModal').style.display = 'none';
             },
 
             initTimeSelects: function () {
@@ -584,7 +692,7 @@
             loadData: async function () {
                 const date = document.getElementById('dateInput').value;
                 try {
-                    const res = await fetch(`${API_BASE}/data?date=${date}`);
+                    const res = await fetch(`${API_BASE}/data?date=${date}&userId=${this.currentUserId}`);
                     if (!res.ok) throw new Error('Failed to load data');
                     this.data = await res.json();
                     this.render();
@@ -616,7 +724,7 @@
                     const res = await fetch(`${API_BASE}/todos`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text, start, end, date })
+                        body: JSON.stringify({ text, start, end, date, userId: this.currentUserId })
                     });
                     if (res.ok) {
                         input.value = '';
@@ -645,16 +753,28 @@
                 const amtInput = document.getElementById('transAmount');
                 const descInput = document.getElementById('transDesc');
                 const amount = parseFloat(amtInput.value);
-                if (isNaN(amount) || amount <= 0) return alert('请输入有效金额'); const payload = {
-                    type:
-                        document.getElementById('transType').value, category: document.getElementById('transCategory').value, desc:
-                        descInput.value.trim() || document.getElementById('transCategory').value, amount: amount, date:
-                        document.getElementById('dateInput').value
-                }; try {
+                if (isNaN(amount) || amount <= 0) return alert('请输入有效金额');
+
+                const payload = {
+                    type: document.getElementById('transType').value,
+                    category: document.getElementById('transCategory').value,
+                    desc: descInput.value.trim() || document.getElementById('transCategory').value,
+                    amount: amount,
+                    date: document.getElementById('dateInput').value,
+                    userId: this.currentUserId
+                };
+
+                try {
                     const res = await fetch(`${API_BASE}/transactions`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                    }); if
-                        (res.ok) { amtInput.value = ''; descInput.value = ''; this.loadData(); }
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        amtInput.value = '';
+                        descInput.value = '';
+                        this.loadData();
+                    }
                 } catch (e) { console.error(e); }
             },
             deleteTransaction: async function (id) {
@@ -732,7 +852,7 @@
                 document.getElementById('statsLabel').innerText = `${curYear}年${curMonth}月`;
 
                 try {
-                    const res = await fetch(`${API_BASE}/stats?year=${curYear}`);
+                    const res = await fetch(`${API_BASE}/stats?year=${curYear}&userId=${this.currentUserId}`);
                     if (!res.ok) return;
                     const transactions = await res.json();
 

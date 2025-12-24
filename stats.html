@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>分类统计 - 每日记录</title>
+    <style>
+        :root {
+            --bg-color: #F2F2F7;
+            --card-bg: #FFFFFF;
+            --primary: #007AFF;
+            --danger: #FF3B30;
+            --success: #34C759;
+            --text-main: #1C1C1E;
+            --text-sub: #8E8E93;
+            --radius-l: 20px;
+            --radius-m: 12px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        .nav-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-title {
+            font-weight: 600;
+            font-size: 17px;
+        }
+
+        .back-btn {
+            border: none;
+            background: none;
+            color: var(--primary);
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .header-area {
+            padding: 24px 20px 10px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-l);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 10px;
+            background: #E5E5EA;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .control-select {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            background: #E5E5EA;
+            font-size: 14px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .stat-icon.inc {
+            background: rgba(52, 199, 89, 0.15);
+        }
+
+        .stat-icon.exp {
+            background: rgba(255, 59, 48, 0.15);
+        }
+
+        .stat-info h4 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .stat-info p {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-top: 2px;
+        }
+
+        .stat-amount {
+            font-family: monospace;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .stat-amount.inc {
+            color: var(--success);
+        }
+
+        .stat-amount.exp {
+            color: var(--text-main);
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px;
+            background: var(--bg-color);
+            border-radius: 12px;
+            margin-top: 16px;
+        }
+
+        .total-label {
+            color: var(--text-sub);
+            font-size: 14px;
+        }
+
+        .total-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-sub);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="nav-bar">
+        <button class="back-btn" onclick="location.href='index.html'">← 返回</button>
+        <div class="nav-title">分类统计</div>
+        <div style="width:50px;"></div>
+    </nav>
+
+    <div class="header-area">
+        <h1>📊 收支分析</h1>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" id="tabExp" onclick="switchTab('expense')">支出分析</button>
+            <button class="tab" id="tabInc" onclick="switchTab('income')">收入分析</button>
+        </div>
+
+        <div class="controls">
+            <select id="yearSelect" class="control-select" onchange="loadStats()"></select>
+            <select id="monthSelect" class="control-select" onchange="loadStats()">
+                <option value="">全年</option>
+            </select>
+        </div>
+
+        <div class="card">
+            <div class="card-title" id="cardTitle">支出分类</div>
+            <div id="statsList"></div>
+            <div class="total-row">
+                <span class="total-label">合计</span>
+                <span class="total-value" id="totalAmount">¥0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000/api'
+            : `${window.location.origin}/api`;
+
+        let currentType = 'expense';
+        const userId = localStorage.getItem('currentUserId') || 1;
+
+        const categoryEmoji = {
+            '餐饮': '🍔', '购物': '🛍️', '交通': '🚕', '住房': '🏠',
+            '娱乐': '🎮', '医疗': '💊', '订阅': '📱', '其他': '📝',
+            '工资': '💼', '兼职': '🕰️', '理财': '📈', '红包': '🧧', '退款': '🔙'
+        };
+
+        function init() {
+            // 填充年份
+            const yearSelect = document.getElementById('yearSelect');
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear; y >= currentYear - 5; y--) {
+                yearSelect.innerHTML += `<option value="${y}">${y}年</option>`;
+            }
+
+            // 填充月份
+            const monthSelect = document.getElementById('monthSelect');
+            for (let m = 1; m <= 12; m++) {
+                monthSelect.innerHTML += `<option value="${m}">${m}月</option>`;
+            }
+
+            loadStats();
+        }
+
+        function switchTab(type) {
+            currentType = type;
+            document.getElementById('tabExp').classList.toggle('active', type === 'expense');
+            document.getElementById('tabInc').classList.toggle('active', type === 'income');
+            document.getElementById('cardTitle').innerText = type === 'expense' ? '支出分类' : '收入分类';
+            renderStats();
+        }
+
+        let allStats = [];
+
+        async function loadStats() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+
+            try {
+                let url = `${API_BASE}/category-stats?year=${year}&userId=${userId}`;
+                if (month) url += `&month=${month}`;
+
+                const res = await fetch(url);
+                if (res.ok) {
+                    allStats = await res.json();
+                    renderStats();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderStats() {
+            const list = document.getElementById('statsList');
+            const filtered = allStats.filter(s => s.type === currentType);
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="empty">暂无数据</div>';
+                document.getElementById('totalAmount').innerText = '¥0';
+                return;
+            }
+
+            let total = 0;
+            list.innerHTML = filtered.map(s => {
+                total += Number(s.total);
+                const emoji = categoryEmoji[s.category] || '💰';
+                const isInc = s.type === 'income';
+                return `
+                    <div class="stat-item">
+                        <div class="stat-left">
+                            <div class="stat-icon ${isInc ? 'inc' : 'exp'}">${emoji}</div>
+                            <div class="stat-info">
+                                <h4>${s.category}</h4>
+                                <p>${s.count} 笔</p>
+                            </div>
+                        </div>
+                        <div class="stat-amount ${isInc ? 'inc' : 'exp'}">
+                            ${isInc ? '+' : '-'}¥${Number(s.total).toFixed(2)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('totalAmount').innerText =
+                `${currentType === 'income' ? '+' : '-'}¥${total.toFixed(2)}`;
+            document.getElementById('totalAmount').style.color =
+                currentType === 'income' ? 'var(--success)' : 'var(--danger)';
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
