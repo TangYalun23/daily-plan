@@ -74,7 +74,22 @@ db.connect(err => {
             }
             console.log('Database initialized.');
             db.changeUser({ database: 'daily_plan_db' }, (err) => {
-                if (err) console.error('Error selecting database:', err);
+                if (err) {
+                    console.error('Error selecting database:', err);
+                    return;
+                }
+                // 升级旧表：添加 user_id 列（如果不存在）
+                const upgradeSql = `
+                    ALTER TABLE todos ADD COLUMN user_id INT DEFAULT 1;
+                    ALTER TABLE transactions ADD COLUMN user_id INT DEFAULT 1;
+                `;
+                db.query(upgradeSql, (err) => {
+                    if (err && !err.message.includes('Duplicate column')) {
+                        // 忽略"列已存在"的错误
+                        if (!err.message.includes('Duplicate')) console.log('Note:', err.message);
+                    }
+                    console.log('Tables upgraded.');
+                });
             });
         });
     }
