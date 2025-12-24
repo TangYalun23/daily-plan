@@ -517,7 +517,10 @@
     <div class="safe-area"></div>
 
     <script>
-        const API_BASE = `http://${window.location.hostname}:3000/api`;
+        // 智能检测环境：本地开发用 localhost:3000，云端用当前域名
+        const API_BASE = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000/api'
+            : `${window.location.origin}/api`;
 
         const app = {
             data: { todos: [], transactions: [] },
@@ -561,9 +564,10 @@
 
             initTimeSelects: function () {
                 const slots = [];
-                for (let h = 6; h < 24; h++) for (let m = 0; m < 60; m += 30) slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-                for (let h = 0; h < 6; h++) for (let m = 0; m < 60; m += 30) slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-                const opts = slots.map(t => `<option value="${t}">${t}</option>`).join('');
+                for (let h = 6; h < 24; h++) for (let m = 0; m < 60; m += 30) slots.push(`${h.toString().padStart(2, '0'
+                )}:${m.toString().padStart(2, '0')}`); for (let h = 0; h < 6; h++) for (let m = 0; m < 60; m += 30)
+                    slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`); const opts = slots.map(t => `
+        <option value="${t}">${t}</option>`).join('');
                 document.getElementById('startTime').innerHTML = opts;
                 document.getElementById('endTime').innerHTML = opts;
                 document.getElementById('startTime').value = "09:00";
@@ -573,7 +577,8 @@
             updateCategories: function () {
                 const type = document.getElementById('transType').value;
                 const list = this.categories[type] || [];
-                document.getElementById('transCategory').innerHTML = list.map(c => `<option value="${c}">${c}</option>`).join('');
+                document.getElementById('transCategory').innerHTML = list.map(c => `<option value="${c}">${c}</option>
+        `).join('');
             },
 
             loadData: async function () {
@@ -640,59 +645,47 @@
                 const amtInput = document.getElementById('transAmount');
                 const descInput = document.getElementById('transDesc');
                 const amount = parseFloat(amtInput.value);
-                if (isNaN(amount) || amount <= 0) return alert('请输入有效金额');
-
-                const payload = {
-                    type: document.getElementById('transType').value,
-                    category: document.getElementById('transCategory').value,
-                    desc: descInput.value.trim() || document.getElementById('transCategory').value,
-                    amount: amount,
-                    date: document.getElementById('dateInput').value
-                };
-
-                try {
+                if (isNaN(amount) || amount <= 0) return alert('请输入有效金额'); const payload = {
+                    type:
+                        document.getElementById('transType').value, category: document.getElementById('transCategory').value, desc:
+                        descInput.value.trim() || document.getElementById('transCategory').value, amount: amount, date:
+                        document.getElementById('dateInput').value
+                }; try {
                     const res = await fetch(`${API_BASE}/transactions`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (res.ok) {
-                        amtInput.value = ''; descInput.value = '';
-                        this.loadData();
-                    }
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    }); if
+                        (res.ok) { amtInput.value = ''; descInput.value = ''; this.loadData(); }
                 } catch (e) { console.error(e); }
             },
-
             deleteTransaction: async function (id) {
                 if (confirm('删除此条账单？')) {
                     try {
-                        await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' });
-                        this.loadData();
-                    } catch (e) { console.error(e); }
+                        await
+                            fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' }); this.loadData();
+                    } catch (e) {
+                        console.error(e);
+                    }
                 }
-            },
-
-            render: function () {
-                const todoList = document.getElementById('todoList');
-                const transList = document.getElementById('transList');
-
-                todoList.innerHTML = '';
-                let pending = 0;
+            }, render: function () {
+                const todoList = document.getElementById('todoList'); const
+                    transList = document.getElementById('transList'); todoList.innerHTML = ''; let pending = 0;
                 this.data.todos.forEach(t => {
                     if (!t.completed) pending++;
                     const li = document.createElement('li');
                     li.className = t.completed ? 'completed' : '';
                     li.innerHTML = `
-                    <div class="item-left">
-                        <input type="checkbox" id="chk_${t.id}" class="check-input" style="display:none;" ${t.completed ? 'checked' : ''} onchange="app.toggleTodo(${t.id})">
-                        <label for="chk_${t.id}" class="check-circle"></label>
-                        <div class="item-text">
-                            <span class="main-text">${t.text}</span>
-                            <span class="sub-text">${t.start} - ${t.end}</span>
-                        </div>
-                    </div>
-                    <button class="icon-btn" onclick="app.deleteTodo(${t.id})" style="color:var(--separator); font-size:1.4rem;">×</button>
-                `;
+            <div class="item-left">
+                <input type="checkbox" id="chk_${t.id}" class="check-input" style="display:none;" ${t.completed
+                            ? 'checked' : ''} onchange="app.toggleTodo(${t.id})">
+                <label for="chk_${t.id}" class="check-circle"></label>
+                <div class="item-text">
+                    <span class="main-text">${t.text}</span>
+                    <span class="sub-text">${t.start} - ${t.end}</span>
+                </div>
+            </div>
+            <button class="icon-btn" onclick="app.deleteTodo(${t.id})"
+                style="color:var(--separator); font-size:1.4rem;">×</button>
+            `;
                     todoList.appendChild(li);
                 });
                 document.getElementById('todoCount').innerText = pending ? `${pending} 项待办` : '今日已完成';
@@ -711,23 +704,25 @@
 
                     const li = document.createElement('li');
                     li.innerHTML = `
-                    <div class="item-left">
-                        <div class="icon-box ${isInc ? 'bg-inc' : 'bg-exp'}">${emoji}</div>
-                        <div class="item-text">
-                            <span class="main-text">${t.category}</span>
-                            <span class="sub-text">${t.desc}</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div class="amt ${isInc ? 'amt-inc' : 'amt-exp'}">${isInc ? '+' : '-'}¥${t.amount.toFixed(2)}</div>
-                        <button class="icon-btn" onclick="app.deleteTransaction(${t.id})" style="color:var(--separator); font-size:1.4rem;">×</button>
-                    </div>
-                `;
+            <div class="item-left">
+                <div class="icon-box ${isInc ? 'bg-inc' : 'bg-exp'}">${emoji}</div>
+                <div class="item-text">
+                    <span class="main-text">${t.category}</span>
+                    <span class="sub-text">${t.desc}</span>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div class="amt ${isInc ? 'amt-inc' : 'amt-exp'}">${isInc ? '+' : '-'}¥${t.amount.toFixed(2)}</div>
+                <button class="icon-btn" onclick="app.deleteTransaction(${t.id})"
+                    style="color:var(--separator); font-size:1.4rem;">×</button>
+            </div>
+            `;
                     transList.appendChild(li);
                 });
 
                 const bal = dInc - dExp;
-                document.getElementById('dailyTotalDisplay').innerHTML = `结余 <span class="${bal >= 0 ? 'amt-inc' : 'amt-exp'}">¥${bal.toFixed(2)}</span>`;
+                document.getElementById('dailyTotalDisplay').innerHTML = `结余 <span
+                class="${bal >= 0 ? 'amt-inc' : 'amt-exp'}">¥${bal.toFixed(2)}</span>`;
             },
 
             calculateStats: async function () {
