@@ -63,10 +63,11 @@ db.connect(err => {
             if (err) console.error('Error creating tables:', err);
             else console.log('Tables ready.');
 
-            // 升级旧表：添加 user_id 列（如果不存在）
+            // 升级旧表：添加 user_id 列和 password 列（如果不存在）
             const upgradeSql = `
                 ALTER TABLE todos ADD COLUMN user_id INT DEFAULT 1;
                 ALTER TABLE transactions ADD COLUMN user_id INT DEFAULT 1;
+                ALTER TABLE users ADD COLUMN password VARCHAR(100) NOT NULL DEFAULT '';
             `;
             db.query(upgradeSql, (err) => {
                 if (err && !err.message.includes('Duplicate')) {
@@ -90,10 +91,11 @@ db.connect(err => {
                     console.error('Error selecting database:', err);
                     return;
                 }
-                // 升级旧表：添加 user_id 列（如果不存在）
+                // 升级旧表：添加 user_id 列和 password 列（如果不存在）
                 const upgradeSql = `
                     ALTER TABLE todos ADD COLUMN user_id INT DEFAULT 1;
                     ALTER TABLE transactions ADD COLUMN user_id INT DEFAULT 1;
+                    ALTER TABLE users ADD COLUMN password VARCHAR(100) NOT NULL DEFAULT '';
                 `;
                 db.query(upgradeSql, (err) => {
                     if (err && !err.message.includes('Duplicate column')) {
@@ -113,23 +115,47 @@ db.connect(err => {
 
 // 获取所有用户
 app.get('/api/users', (req, res) => {
-    db.query('SELECT id, username, created_at FROM users ORDER BY id', (err, users) => {
+    db.query('SELECT id, username, (password != "") as hasPassword, created_at FROM users ORDER BY id', (err, users) => {
         if (err) return res.status(500).send(err);
         res.json(users);
     });
 });
 
-// 添加用户
+// 添加用户 (需要密码)
 app.post('/api/users', (req, res) => {
-    const { username } = req.body;
+    const { username, password } = req.body;
     if (!username || !username.trim()) return res.status(400).send('用户名不能为空');
+    if (!password || password.length < 4) return res.status(400).send('密码至少4位');
 
-    db.query('INSERT INTO users (username) VALUES (?)', [username.trim()], (err, result) => {
+    db.query('INSERT INTO users (username, password) VALUES (?, ?)', [username.trim(), password], (err, result) => {
         if (err) {
             if (err.code === 'ER_DUP_ENTRY') return res.status(400).send('用户名已存在');
             return res.status(500).send(err);
         }
         res.json({ id: result.insertId, username: username.trim() });
+    });
+});
+
+// 用户登录验证
+app.post('/api/users/login', (req, res) => {
+    const { userId, password } = req.body;
+
+    db.query('SELECT id, username, password FROM users WHERE id = ?', [userId], (err, users) => {
+        if (err) return res.status(500).send(err);
+        if (users.length === 0) return res.status(404).send('用户不存在');
+
+        const user = users[0];
+        // 默认用户(id=1)或无密码用户直接通过
+        if (user.id === 1 || user.password === '' || user.password === null) {
+            return res.json({ success: true, userId: user.id, username: user.username });
+        }
+
+        // 验证密码
+        if (user.password === password) {
+            res.json({ success: true, userId: user.id, username: user.username });
+        } else {
+            res.status(401).send('密码错误');
+        }
     });
 });
 

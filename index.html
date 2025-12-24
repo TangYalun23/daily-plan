@@ -430,11 +430,34 @@
                 <button onclick="app.hideUserModal()"
                     style="border:none; background:none; font-size:24px; cursor:pointer;">×</button>
             </div>
-            <div style="display:flex; gap:8px; margin-bottom:16px;">
-                <input type="text" id="newUsername" class="input-style" placeholder="输入新账号名" style="flex:1;">
-                <button onclick="app.addUser()" class="btn-add" style="width:48px;">+</button>
+            <div style="margin-bottom:12px;">
+                <input type="text" id="newUsername" class="input-style" placeholder="账号名" style="margin-bottom:8px;">
+                <input type="password" id="newPassword" class="input-style" placeholder="密码 (至少4位)">
             </div>
-            <ul id="userList" style="list-style:none;"></ul>
+            <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+                <button onclick="app.addUser()" class="btn-add" style="width:100%; border-radius:12px;">添加账号</button>
+            </div>
+            <div style="border-top:1px solid rgba(0,0,0,0.1); padding-top:16px;">
+                <div style="font-size:14px; color:var(--text-sub); margin-bottom:8px;">账号列表</div>
+                <ul id="userList" style="list-style:none;"></ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录验证弹窗 -->
+    <div id="loginModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:20px; padding:24px; width:90%; max-width:320px;">
+            <h3 style="font-size:18px; font-weight:700; margin-bottom:16px; text-align:center;">🔐 验证身份</h3>
+            <p id="loginUsername" style="text-align:center; color:var(--text-sub); margin-bottom:16px;"></p>
+            <input type="password" id="loginPassword" class="input-style" placeholder="请输入密码"
+                style="margin-bottom:16px;">
+            <div style="display:flex; gap:12px;">
+                <button onclick="app.cancelLogin()"
+                    style="flex:1; padding:12px; border:none; border-radius:12px; background:#E5E5EA; font-size:16px; cursor:pointer;">取消</button>
+                <button onclick="app.confirmLogin()"
+                    style="flex:1; padding:12px; border:none; border-radius:12px; background:var(--primary); color:white; font-size:16px; cursor:pointer;">确认</button>
+            </div>
         </div>
     </div>
 
@@ -563,9 +586,19 @@
 
                 document.getElementById('dateInput').onchange = () => this.loadData();
                 document.getElementById('userSelect').onchange = (e) => {
-                    this.currentUserId = e.target.value;
-                    localStorage.setItem('currentUserId', this.currentUserId);
-                    this.loadData();
+                    const newUserId = e.target.value;
+                    const user = this.users.find(u => u.id == newUserId);
+
+                    // 默认用户或无密码用户直接切换
+                    if (newUserId == 1 || !user.hasPassword) {
+                        this.currentUserId = newUserId;
+                        localStorage.setItem('currentUserId', this.currentUserId);
+                        this.loadData();
+                    } else {
+                        // 需要验证密码
+                        this.pendingUserId = newUserId;
+                        this.showLoginModal(user.username);
+                    }
                 };
                 document.getElementById('todoInput').onkeypress = (e) => { if (e.key === 'Enter') this.addTodo(); };
                 document.getElementById('transAmount').onkeypress = (e) => { if (e.key === 'Enter') this.addTransaction(); };
@@ -627,19 +660,25 @@
             },
 
             addUser: async function () {
-                const input = document.getElementById('newUsername');
-                const username = input.value.trim();
+                const usernameInput = document.getElementById('newUsername');
+                const passwordInput = document.getElementById('newPassword');
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+
                 if (!username) return alert('请输入账号名');
+                if (!password || password.length < 4) return alert('密码至少4位');
 
                 try {
                     const res = await fetch(`${API_BASE}/users`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username })
+                        body: JSON.stringify({ username, password })
                     });
                     if (res.ok) {
-                        input.value = '';
+                        usernameInput.value = '';
+                        passwordInput.value = '';
                         await this.loadUsers();
+                        alert('账号创建成功！');
                     } else {
                         const msg = await res.text();
                         alert(msg);
@@ -668,6 +707,44 @@
 
             hideUserModal: function () {
                 document.getElementById('userModal').style.display = 'none';
+            },
+
+            // === 登录验证 ===
+            pendingUserId: null,
+
+            showLoginModal: function (username) {
+                document.getElementById('loginUsername').innerText = `正在切换到: ${username}`;
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginModal').style.display = 'flex';
+            },
+
+            cancelLogin: function () {
+                document.getElementById('loginModal').style.display = 'none';
+                this.pendingUserId = null;
+                // 恢复选择框到当前用户
+                document.getElementById('userSelect').value = this.currentUserId;
+            },
+
+            confirmLogin: async function () {
+                const password = document.getElementById('loginPassword').value;
+
+                try {
+                    const res = await fetch(`${API_BASE}/users/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: this.pendingUserId, password })
+                    });
+
+                    if (res.ok) {
+                        this.currentUserId = this.pendingUserId;
+                        localStorage.setItem('currentUserId', this.currentUserId);
+                        document.getElementById('loginModal').style.display = 'none';
+                        this.pendingUserId = null;
+                        this.loadData();
+                    } else {
+                        alert('密码错误');
+                    }
+                } catch (e) { console.error(e); }
             },
 
             initTimeSelects: function () {

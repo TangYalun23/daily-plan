@@ -1,9 +1,10 @@
 CREATE DATABASE IF NOT EXISTS daily_plan_db;
 USE daily_plan_db;
--- 用户表
+-- 用户表 (添加 password 字段)
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 -- 计划表 (添加 user_id)
@@ -28,6 +29,6 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at VARCHAR(20),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
--- 插入默认用户
-INSERT IGNORE INTO users (id, username)
-VALUES (1, '默认用户');
+-- 插入默认用户 (无密码)
+INSERT IGNORE INTO users (id, username, password)
+VALUES (1, '默认用户', '');
