@@ -13,12 +13,13 @@ app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
 // Database Connection - 支持本地和云端环境
+// Railway 使用 MYSQLHOST 格式，标准格式是 MYSQL_HOST，两者都支持
 const db = mysql.createConnection({
-    host: process.env.MYSQL_HOST || 'localhost',
-    user: process.env.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || 'tyl20040923.',
-    database: process.env.MYSQL_DATABASE || undefined,
-    port: process.env.MYSQL_PORT || 3306,
+    host: process.env.MYSQLHOST || process.env.MYSQL_HOST || 'localhost',
+    user: process.env.MYSQLUSER || process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD || 'tyl20040923.',
+    database: process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE || undefined,
+    port: process.env.MYSQLPORT || process.env.MYSQL_PORT || 3306,
     multipleStatements: true
 });
 
@@ -31,7 +32,7 @@ db.connect(err => {
     console.log('Connected to MySQL server.');
 
     // 云端环境：数据库已由Railway创建，只需建表
-    if (process.env.MYSQL_HOST) {
+    if (process.env.MYSQLHOST || process.env.MYSQL_HOST) {
         const createTables = `
             CREATE TABLE IF NOT EXISTS todos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
