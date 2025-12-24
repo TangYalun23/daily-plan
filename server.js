@@ -64,18 +64,21 @@ db.connect(err => {
             if (err) console.error('Error creating tables:', err);
             else console.log('Tables ready.');
 
-            // 升级旧表：添加 user_id 列和 password 列（如果不存在）
-            const upgradeSql = `
-                ALTER TABLE todos ADD COLUMN user_id INT DEFAULT 1;
-                ALTER TABLE transactions ADD COLUMN user_id INT DEFAULT 1;
-                ALTER TABLE users ADD COLUMN password VARCHAR(100) NOT NULL DEFAULT '';
-            `;
-            db.query(upgradeSql, (err) => {
-                if (err && !err.message.includes('Duplicate')) {
-                    // 忽略"列已存在"的错误
-                }
-                console.log('Cloud tables upgraded.');
+            // 升级旧表：分别执行每个 ALTER TABLE（避免一个失败影响其他）
+            const alterStatements = [
+                'ALTER TABLE todos ADD COLUMN user_id INT DEFAULT 1',
+                'ALTER TABLE transactions ADD COLUMN user_id INT DEFAULT 1',
+                'ALTER TABLE users ADD COLUMN password VARCHAR(100) NOT NULL DEFAULT \'\''
+            ];
+
+            alterStatements.forEach(sql => {
+                db.query(sql, (err) => {
+                    if (err && !err.message.includes('Duplicate')) {
+                        console.log('Upgrade note:', err.message);
+                    }
+                });
             });
+            console.log('Cloud tables upgrade attempted.');
         });
     } else {
         // 本地环境：创建数据库和表
