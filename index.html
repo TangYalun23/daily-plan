@@ -687,9 +687,19 @@
             },
 
             deleteUser: async function (id) {
-                if (!confirm('确定删除此账号？该账号的所有数据将被删除！')) return;
+                const user = this.users.find(u => u.id === id);
+                if (!user) return;
+
+                // 弹出密码输入
+                const password = prompt(`删除账号 "${user.username}" 需要输入密码确认：`);
+                if (password === null) return; // 用户取消
+
                 try {
-                    const res = await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE' });
+                    const res = await fetch(`${API_BASE}/users/${id}/delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
                     if (res.ok) {
                         if (this.currentUserId == id) {
                             this.currentUserId = 1;
@@ -697,6 +707,10 @@
                         }
                         await this.loadUsers();
                         this.loadData();
+                        alert('账号已删除');
+                    } else {
+                        const msg = await res.text();
+                        alert(msg);
                     }
                 } catch (e) { console.error(e); }
             },

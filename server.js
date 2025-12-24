@@ -163,14 +163,28 @@ app.post('/api/users/login', (req, res) => {
     });
 });
 
-// 删除用户
-app.delete('/api/users/:id', (req, res) => {
+// 删除用户 (需要验证密码)
+app.post('/api/users/:id/delete', (req, res) => {
     const userId = req.params.id;
+    const { password } = req.body;
+
     if (userId === '1') return res.status(400).send('默认用户不能删除');
 
-    db.query('DELETE FROM users WHERE id = ?', [userId], (err) => {
+    // 先验证密码
+    db.query('SELECT password FROM users WHERE id = ?', [userId], (err, users) => {
         if (err) return res.status(500).send(err);
-        res.sendStatus(200);
+        if (users.length === 0) return res.status(404).send('用户不存在');
+
+        const user = users[0];
+        if (user.password && user.password !== password) {
+            return res.status(401).send('密码错误');
+        }
+
+        // 密码正确，删除用户
+        db.query('DELETE FROM users WHERE id = ?', [userId], (err) => {
+            if (err) return res.status(500).send(err);
+            res.sendStatus(200);
+        });
     });
 });
 
