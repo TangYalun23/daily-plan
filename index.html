@@ -949,7 +949,7 @@
                         }
                     });
 
-                    const fmt = (n) => `¥${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                    const fmt = (n) => `¥${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     document.getElementById('monthInc').innerText = fmt(mInc);
                     document.getElementById('monthExp').innerText = fmt(mExp);
                     document.getElementById('monthBal').innerText = fmt(mInc - mExp);
