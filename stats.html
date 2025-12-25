@@ -310,6 +310,9 @@
             const list = document.getElementById('statsList');
             const filtered = allStats.filter(s => s.type === currentType);
 
+            // 按金额从大到小排序
+            filtered.sort((a, b) => Number(b.total) - Number(a.total));
+
             if (filtered.length === 0) {
                 list.innerHTML = '<div class="empty">暂无数据</div>';
                 document.getElementById('totalAmount').innerText = '¥0';
